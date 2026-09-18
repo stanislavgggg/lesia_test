@@ -1,0 +1,29 @@
+{
+  "$schema": "https://developers.cloudflare.com/workers/wrangler/config-schema/schema.json",
+
+  // Ім'я проєкту. Стане частиною домену: <name>.<акаунт>.workers.dev
+  "name": "checkup-character-scenario",
+
+  // Точка входу — саме той скрипт, якого не вистачало при drag-and-drop.
+  // Наявність "main" — це те, що перетворює Worker з "тільки статика"
+  // на повноцінний Worker зі скриптом, і тільки тоді в дашборді з'являються
+  // Settings → Variables and secrets.
+  "main": "_worker.js",
+
+  "compatibility_date": "2026-01-01",
+
+  // Статичні файли роздаються через env.ASSETS.fetch(request) з _worker.js.
+  // Тека "public" не містить _worker.js — інакше він роздавався б як
+  // завантажуваний файл на /_worker.js.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  }
+
+  // KV для ідемпотентності між різними edge-нодами (опційно):
+  // 1. npx wrangler kv namespace create LEADS_KV
+  // 2. розкоментувати нижче і підставити id з виводу команди:
+  // "kv_namespaces": [
+  //   { "binding": "LEADS_KV", "id": "ВАШ_ID_СЮДИ" }
+  // ]
+}

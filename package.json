@@ -1,0 +1,21 @@
+{
+  "name": "checkup-character-or-scenario",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Онлайн-чекап «Характер чи сценарій» — статичний сайт для Cloudflare Workers (static assets + _worker.js)",
+  "scripts": {
+    "build": "node tools/build-worker.mjs",
+    "build:public": "node tools/build-worker.mjs && node tools/make-public.mjs",
+    "dist": "node tools/build-worker.mjs && node tools/make-dist.mjs",
+    "dev": "npm run build:public && npx wrangler dev",
+    "deploy": "npm run build:public && npx wrangler deploy",
+    "test": "node --test tests/scoring.test.mjs tests/lead-function.test.mjs",
+    "test:e2e": "node tests/e2e.mjs",
+    "test:all": "npm run test && npm run test:e2e"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0",
+    "wrangler": "^4.0.0"
+  }
+}

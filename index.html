@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Характер чи сценарій? — безкоштовний чекап</title>
+<meta name="description" content="Безкоштовний чекап на 10 запитань: який звичний сценарій зараз найсильніше впливає на твої рішення. Результат одразу.">
+<meta name="robots" content="index, follow" id="robots-meta">
+<link rel="canonical" href="https://aleksa.space/checkup" id="canonical-link">
+<meta name="theme-color" content="#14111a">
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="uk_UA">
+<meta property="og:title" content="Характер чи сценарій?">
+<meta property="og:description" content="10 запитань про те, що змушує тебе діяти не на свою користь. Безкоштовно, 5 хвилин, результат одразу.">
+<meta property="og:image" content="/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314111a'/%3E%3Cpath d='M9 21V11h2.6l4.4 6.4V11h2.6v10h-2.6L11.6 14.6V21z' fill='%23c3a3e0'/%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="/assets/styles.css">
+</head>
+
+<body>
+
+<!-- Прогрес-рейка: 10 сегментів, по одному на питання -->
+<div class="railbar" id="railbar" hidden>
+  <div class="shell">
+    <div class="railbar__inner">
+      <div class="rail" id="rail" role="progressbar"
+           aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"
+           aria-label="Прогрес чекапу"></div>
+      <span class="railbar__count" id="rail-count">0/10</span>
+    </div>
+  </div>
+</div>
+
+<main id="main">
+
+  <!-- ============================== Вступний екран ============================== -->
+  <section class="screen" id="screen-start" data-active="true" aria-labelledby="start-title">
+    <div class="shell intro">
+
+      <div class="resume" id="resume" hidden>
+        <h2 id="resume-title">Продовжити з того самого місця?</h2>
+        <p id="resume-text"></p>
+        <div class="resume__actions">
+          <button type="button" class="btn btn--primary" id="resume-continue">ПРОДОВЖИТИ</button>
+          <button type="button" class="btn btn--link" id="resume-restart">Почати спочатку</button>
+        </div>
+      </div>
+
+      <p class="eyebrow" id="intro-eyebrow">Чекап · 5 хвилин</p>
+      <h1 class="display serif" id="start-title">Характер чи сценарій?</h1>
+
+      <div class="intro__hook">
+        <p class="lead" id="intro-text"></p>
+        <p class="note" id="intro-note"></p>
+      </div>
+
+      <button type="button" class="btn btn--primary" id="start-btn">ПОЧАТИ</button>
+      <p class="meta" id="intro-meta" style="margin-top:1rem;text-align:center"></p>
+    </div>
+  </section>
+
+  <!-- ================================= Питання ================================= -->
+  <section class="screen" id="screen-question" aria-labelledby="q-text">
+    <div class="shell qwrap">
+      <p class="eyebrow" id="q-counter"></p>
+
+      <fieldset class="answers" id="answers">
+        <legend class="visually-hidden" id="q-legend"></legend>
+        <h2 class="q-text serif" id="q-text" tabindex="-1"></h2>
+        <!-- Варіанти рендеряться скриптом -->
+      </fieldset>
+
+      <p class="err" id="q-error" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="actionbar">
+      <div class="shell">
+        <div class="actionbar__inner">
+          <div class="actionbar__row">
+            <button type="button" class="btn btn--link" id="back-btn">Назад</button>
+          </div>
+          <button type="button" class="btn btn--primary" id="next-btn" disabled>ДАЛІ</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ Реєстраційна форма ============================ -->
+  <section class="screen" id="screen-form" aria-labelledby="form-title">
+    <div class="shell formwrap">
+      <p class="eyebrow" id="form-eyebrow"></p>
+      <h2 class="section serif" id="form-title" tabindex="-1"></h2>
+      <p class="lead" id="form-text"></p>
+
+      <p class="formerror" id="form-error" role="alert"></p>
+
+      <form id="lead-form" novalidate>
+        <div class="field">
+          <label for="firstName" id="name-label"></label>
+          <input class="input" type="text" id="firstName" name="firstName"
+                 autocomplete="given-name" maxlength="50" spellcheck="false"
+                 aria-describedby="name-error">
+          <span class="err" id="name-error"></span>
+        </div>
+
+        <div class="field">
+          <label for="email" id="email-label"></label>
+          <input class="input" type="email" id="email" name="email"
+                 autocomplete="email" maxlength="254" inputmode="email"
+                 spellcheck="false" aria-describedby="email-error">
+          <span class="err" id="email-error"></span>
+        </div>
+
+        <label class="check" for="privacyConsent">
+          <input type="checkbox" id="privacyConsent" name="privacyConsent"
+                 aria-describedby="privacy-error">
+          <span id="privacy-text"></span>
+        </label>
+        <span class="err" id="privacy-error"></span>
+
+        <label class="check" for="marketingConsent">
+          <input type="checkbox" id="marketingConsent" name="marketingConsent">
+          <span id="marketing-text"></span>
+        </label>
+
+        <div style="margin-top:1.5rem">
+          <button type="submit" class="btn btn--primary" id="submit-btn"></button>
+          <p class="meta" id="form-note" style="margin-top:0.8rem;text-align:center"></p>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ================================ Результат ================================ -->
+  <section class="screen" id="screen-result" aria-labelledby="result-title">
+    <div class="shell resultwrap">
+      <p class="eyebrow" id="result-eyebrow"></p>
+      <h2 class="section serif" id="result-title" tabindex="-1" style="font-size:clamp(1.8rem,7vw,2.5rem)"></h2>
+
+      <p class="intensity" id="result-intensity"></p>
+      <p class="result__hook" id="result-hook"></p>
+
+      <div class="cards" id="result-cards" hidden></div>
+
+      <div class="rblock" id="block-signs" hidden>
+        <h3 class="block" id="signs-title"></h3>
+        <ul id="signs-list"></ul>
+      </div>
+
+      <div class="rblock" id="block-purpose" hidden>
+        <h3 class="block" id="purpose-title"></h3>
+        <p id="purpose-text"></p>
+      </div>
+
+      <div class="rblock" id="block-secondary" hidden>
+        <h3 class="block" id="secondary-title"></h3>
+        <div class="cards" id="secondary-cards"></div>
+      </div>
+
+      <h3 class="block" id="steps-title"></h3>
+      <ol class="steps" id="steps-list"></ol>
+
+      <div class="invite">
+        <p class="eyebrow" id="invite-eyebrow"></p>
+        <h3 id="invite-title"></h3>
+        <p id="invite-text"></p>
+        <a class="btn btn--primary" id="cta-btn" href="#" target="_blank" rel="noopener noreferrer"></a>
+        <p class="meta" id="invite-note" style="margin-top:0.8rem;text-align:center"></p>
+        <a class="cta-fallback" id="cta-fallback" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+      </div>
+
+      <div class="footer">
+        <button type="button" class="btn btn--link" id="restart-btn"></button>
+        <p class="note" id="disclaimer"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============================== Помилка =============================== -->
+  <section class="screen" id="screen-error" aria-labelledby="error-title">
+    <div class="shell formwrap">
+      <h2 class="section serif" id="error-title" tabindex="-1"></h2>
+      <p class="lead" id="error-text"></p>
+      <button type="button" class="btn btn--primary" id="retry-btn"></button>
+    </div>
+  </section>
+
+</main>
+
+<noscript>
+  <div class="shell" style="padding:3rem 1.25rem">
+    <h1 class="display serif">Характер чи сценарій?</h1>
+    <p class="lead">Для проходження чекапу потрібен увімкнений JavaScript. Увімкни його в налаштуваннях браузера або відкрий сторінку в іншому браузері.</p>
+  </div>
+</noscript>
+
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>
