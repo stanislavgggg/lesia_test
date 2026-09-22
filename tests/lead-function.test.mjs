@@ -206,6 +206,38 @@ test('Роутер віддає статику через ASSETS і відхил
   assert.equal(withSlash.status, 201);
 });
 
+test('SPA-маршрути (/q/N, /form, /result, /error) віддають index.html, а не 404', async () => {
+  const { default: worker } = await import('../_worker.js');
+  let requestedPath = null;
+  const env = {
+    ...ENV,
+    ASSETS: {
+      fetch: async (req) => {
+        requestedPath = new URL(req.url).pathname;
+        return new Response('<html>index</html>', { status: 200 });
+      }
+    }
+  };
+
+  for (const path of ['/', '/q/1', '/q/10', '/q/10/', '/form', '/result', '/error']) {
+    requestedPath = null;
+    const res = await worker.fetch(new Request('https://x' + path), env);
+    assert.equal(res.status, 200, path + ' має віддати 200');
+    assert.equal(await res.text(), '<html>index</html>', path + ' має віддати вміст index.html');
+    assert.equal(requestedPath, '/index.html', path + ' має бути перенаправлений на /index.html усередині');
+  }
+
+  // Некоректний номер питання й довільний шлях — не SPA-маршрут, іде як звичайна статика
+  // (у продакшені це означає честню 404, бо такого файлу немає)
+  requestedPath = null;
+  await worker.fetch(new Request('https://x/q/11'), env);
+  assert.equal(requestedPath, '/q/11', '/q/11 не підмінюється на index.html');
+
+  requestedPath = null;
+  await worker.fetch(new Request('https://x/random/path'), env);
+  assert.equal(requestedPath, '/random/path', 'невідомий шлях не підмінюється на index.html');
+});
+
 test('Telegram-сповіщення надсилається з ім’ям, email і без сирих відповідей', async () => {
   let sent = null;
   const realFetch = globalThis.fetch;

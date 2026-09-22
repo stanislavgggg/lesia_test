@@ -30,6 +30,20 @@
 
 const LEAD_PATH = '/api/checkup/lead';
 
+/**
+ * Кожен екран застосунку — окрема URL-адреса (History API на клієнті,
+ * assets/app.js: pathForScreen). Сервер має віддавати той самий index.html
+ * для будь-якого з цих шляхів — інакше пряме відкриття /q/5 чи оновлення
+ * сторінки на /result впаде в 404 замість застосунку.
+ */
+const SPA_ROUTES = [
+  /^\/$/,
+  /^\/q\/(?:[1-9]|10)\/?$/,
+  /^\/form\/?$/,
+  /^\/result\/?$/,
+  /^\/error\/?$/
+];
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -41,7 +55,13 @@ export default {
       return handleLead({ request, env, ctx });
     }
 
-    // Усе інше — статика проєкту. Без цього рядка жоден файл не віддасться.
+    if (request.method === 'GET' && SPA_ROUTES.some((re) => re.test(url.pathname))) {
+      const assetUrl = new URL(url);
+      assetUrl.pathname = '/index.html';
+      return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+    }
+
+    // Усе інше — статика проєкту (assets/*, og.jpg, robots.txt тощо).
     return env.ASSETS.fetch(request);
   }
 };

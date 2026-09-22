@@ -127,7 +127,23 @@ let submitted = false;
 const SCREENS = ['start', 'question', 'form', 'result', 'error'];
 let currentScreen = 'start';
 
-function showScreen(name, { push = true } = {}) {
+/**
+ * Кожен екран — окрема URL-адреса (розділ «повноцінна структура сервісу»):
+ * "/" — вступ, "/q/N" — питання N, "/form" — реєстрація, "/result" — результат,
+ * "/error" — технічна помилка. index.html один на всі маршрути (SPA), сервер
+ * (_worker.js) віддає його для будь-якого з цих шляхів — див. tools/worker-template.js.
+ */
+function pathForScreen(name) {
+  switch (name) {
+    case 'question': return '/q/' + state.currentQuestion;
+    case 'form': return '/form';
+    case 'result': return '/result';
+    case 'error': return '/error';
+    default: return '/';
+  }
+}
+
+function showScreen(name, { push = true, replace = false } = {}) {
   SCREENS.forEach((s) => {
     const el = $('screen-' + s);
     if (el) el.dataset.active = String(s === name);
@@ -141,10 +157,17 @@ function showScreen(name, { push = true } = {}) {
   const robots = $('robots-meta');
   if (robots) robots.setAttribute('content', name === 'start' ? 'index, follow' : 'noindex, follow');
 
-  if (push) {
-    try { history.pushState({ screen: name, q: state.currentQuestion }, '', window.location.href); }
-    catch { /* ignore */ }
-  }
+  const path = pathForScreen(name);
+  const historyState = { screen: name, q: state.currentQuestion };
+  try {
+    if (replace) {
+      history.replaceState(historyState, '', path);
+    } else if (push) {
+      if (window.location.pathname === path) history.replaceState(historyState, '', path);
+      else history.pushState(historyState, '', path);
+    }
+  } catch { /* ignore */ }
+
   try { window.scrollTo(0, 0); } catch { /* ignore */ }
 }
 
@@ -357,8 +380,8 @@ function initFormTexts() {
   setText('marketing-text', UI.marketingConsent);
 }
 
-function openForm() {
-  showScreen('form');
+function openForm({ push = true } = {}) {
+  showScreen('form', { push });
   $('form-title').focus({ preventScroll: true });
   track('registration_view');
 }
@@ -693,19 +716,78 @@ function init() {
     track('result_cta_click', { cta_id: 'direct_fallback' });
   });
 
-  // Системна кнопка «Назад» не викидає користувача з тесту
+  // Системна кнопка «Назад/Вперед» веде по реальних URL кожного екрана,
+  // а не лише по внутрішньому стану (розділ «повноцінна структура сервісу»).
   window.addEventListener('popstate', () => {
-    if (currentScreen === 'question' && state.currentQuestion > 1) {
-      goBack();
-    } else if (currentScreen === 'form') {
+    const path = window.location.pathname;
+
+    const qMatch = path.match(/^\/q\/(\d+)\/?$/);
+    if (qMatch) {
+      const requested = parseInt(qMatch[1], 10);
+      // Не дозволяємо через адресний рядок перестрибнути питання, на які ще
+      // немає відповіді — максимум перше неповідане.
+      const maxReachable = Math.min(QUESTIONS.length, Object.keys(state.answers).length + 1);
+      const n = Math.min(Math.max(requested || 1, 1), maxReachable);
+      state.currentQuestion = n;
+      saveState();
       renderQuestion();
       showScreen('question', { push: false });
-    } else if (currentScreen === 'question') {
-      showScreen('start', { push: false });
+      return;
     }
+
+    if (path === '/form' || path === '/form/') {
+      if (missingAnswers(state.answers).length) {
+        state.currentQuestion = Math.min(QUESTIONS.length, Object.keys(state.answers).length + 1);
+        saveState();
+        renderQuestion();
+        showScreen('question', { push: false });
+        return;
+      }
+      openForm({ push: false });
+      return;
+    }
+
+    if (path === '/result' || path === '/result/') {
+      if (state.result) {
+        renderResult();
+        showScreen('result', { push: false });
+      } else {
+        showScreen('start', { push: false });
+      }
+      return;
+    }
+
+    // "/" або будь-що незнайоме — вступний екран
+    showScreen('start', { push: false });
   });
 
-  try { history.replaceState({ screen: 'start' }, '', window.location.href); } catch { /* ignore */ }
+  navigateOnLoad();
+}
+
+/**
+ * Що показати одразу після завантаження сторінки — залежно від URL, яким
+ * прийшла людина, і того, що з ним узгоджується у збереженому стані.
+ * Пряме посилання на /result відкриває вже пройдений результат (якщо він є
+ * у цій сесії/пристрої); пряме посилання на /form — форму, якщо всі
+ * питання вже відповідені. У решті випадків (включно з прямим переходом на
+ * /q/N без пройденого шляху) — вступний екран із пропозицією продовжити,
+ * якщо є прогрес; URL нормалізується до "/".
+ */
+function navigateOnLoad() {
+  const path = window.location.pathname;
+
+  if ((path === '/result' || path === '/result/') && state.result) {
+    renderResult();
+    showScreen('result', { push: false });
+    return;
+  }
+
+  if ((path === '/form' || path === '/form/') && Object.keys(state.answers).length === QUESTIONS.length) {
+    openForm({ push: false });
+    return;
+  }
+
+  try { history.replaceState({ screen: 'start' }, '', '/'); } catch { /* ignore */ }
   showScreen('start', { push: false });
 }
 
