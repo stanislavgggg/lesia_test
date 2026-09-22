@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'public');
 
-const INCLUDE = ['index.html', '_headers', 'og.jpg', 'robots.txt', 'assets'];
+const INCLUDE = ['index.html', '_headers', 'og.jpg', 'robots.txt', 'sitemap.xml', 'assets'];
 
 fs.rmSync(PUBLIC, { recursive: true, force: true });
 fs.mkdirSync(PUBLIC, { recursive: true });

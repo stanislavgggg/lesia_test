@@ -202,6 +202,26 @@ p { margin: 0 0 1rem; max-width: 62ch; }
   letter-spacing: 0.03em;
 }
 
+/* Утиліти замість inline style="" — щоб CSP не потребував style-src 'unsafe-inline'. */
+.text-center { text-align: center; }
+.mt-1 { margin-top: 1rem; }
+.mt-08 { margin-top: 0.8rem; }
+.mt-15 { margin-top: 1.5rem; }
+.result-title--fit { font-size: clamp(1.8rem, 7vw, 2.5rem); }
+.noscript-shell { padding: 3rem 1.25rem; }
+
+/* Honeypot-поле форми: приховане візуально й для screen readers, але лишається
+   в DOM і в tab-порядку зі знятим tabindex — так боти-автозаповнювачі його бачать
+   і заповнюють, а людина — ні. display:none тут навмисно не використовується. */
+.hp {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  left: -9999px;
+  top: auto;
+}
+
 /* --------------------------------------------------------- Вступний екран */
 
 .intro {

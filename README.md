@@ -81,7 +81,19 @@ npm run dev   # збирає public/ і піднімає wrangler dev — те �
 | `landingCanonicalUrl` | `https://aleksa.space/checkup` | фінальний canonical |
 | `resultCtaUrl` | `https://ig.me/m/aaaleksa.novi` | перевірити на iOS, Android і у вбудованому браузері Instagram |
 
-Те саме значення canonical продублювати в `index.html` (`<link rel="canonical">`).
+Те саме значення canonical продублювати в `index.html` **у трьох місцях** (соцмережі й Google
+не виконують JS, тому ці теги мають бути статичними, не підставленими скриптом):
+`<link rel="canonical" id="canonical-link">`, `<meta property="og:url" id="og-url">` і хост
+у `<meta property="og:image" id="og-image">` (лишити абсолютний URL, не відносний `/og.jpg` —
+інакше Facebook/Telegram-превʼю не підтягнуть картинку).
+
+**Важливо:** зараз сайт живе на `lesia-test.globalstore24.workers.dev` (workers.dev-домен),
+а `aleksa.space` підключений до Cloudflare, але жоден Worker до нього ще не прив'язаний
+(*Workers & Pages → Domains → Custom Domains* — порожньо). Поки не буде або (а) прив'язаного
+custom domain, або (б) Route `aleksa.space/checkup*` на цей Worker — canonical/og:url
+вказуватимуть на адресу, за якою сайт фактично не відкривається. Перед релізом вирішити:
+корінь домену чи підшлях `/checkup`, підключити відповідно, і тільки тоді проставляти
+фінальні значення тут.
 
 ### Змінні оточення Cloudflare Pages
 
@@ -133,6 +145,7 @@ npx wrangler secret put TELEGRAM_CHAT_ID
 
 - `og.jpg` — зараз згенерована службова обкладинка 1200×630 системним шрифтом. **Замінити на фінальну від дизайнера.**
 - `robots.txt` — підставити реальний домен у `Sitemap:`.
+- `sitemap.xml` — підставити реальний домен у `<loc>` (той самий, що й canonical/og:url вище).
 
 ---
 
@@ -159,6 +172,28 @@ SPA, окремих HTML-файлів на кожне питання немає.
 
 ---
 
+## 2б. Захист лід-форми від спаму й ботів
+
+Публічний POST-ендпоінт без авторизації — типова ціль для спам-ботів. Реалізовано два
+рівні захисту без зовнішніх сервісів (Turnstile/reCAPTCHA не підключені, за потреби —
+легко додати окремим кроком у `handleSubmit`):
+
+- **Honeypot-поле** `website` у формі — приховане CSS (`.hp` у `styles.css`), не в
+  `display:none`/`hidden`, а офскріном + знятий `tabindex` і `aria-hidden` на обгортці:
+  людина й скрінрідер його не бачать і не заповнюють, а боти-автозаповнювачі — часто так.
+  Заповнене поле → сервер мовчки повертає фейковий успіх, нічого не зберігаючи і не
+  надсилаючи в CRM/лист/Telegram (щоб не підказувати боту, що його розпізнали).
+- **Rate limit за IP**: не більше 8 заявок з однієї IP за 10 хвилин (`tools/worker-template.js`,
+  `checkRateLimit`). Як і ідемпотентність без KV — це best-effort у межах одного ізоляту,
+  не синхронізовано між edge-нодами Cloudflare. Для суворішого ліміту — підключити KV
+  або Cloudflare Rate Limiting Rules на рівні зони.
+
+Жоден із цих механізмів не захищає від цілеспрямованого скрипта, який читає публічний
+`assets/app.js` і напряму б'є в API, оминаючи сторінку — для такого рівня загрози потрібен
+Turnstile. Поточний захист розрахований на типових generic-ботів і масовий спам.
+
+---
+
 ## 3. Структура
 
 ```
@@ -175,9 +210,9 @@ tools/build-worker.mjs         збирає _worker.js із шаблона та 
 tools/make-public.mjs          збирає public/ (без _worker.js) для деплою через Wrangler
 tools/make-dist.mjs            збирає dist/ (з _worker.js) для drag-and-drop у legacy Pages
 tests/scoring.test.mjs         11 юніт-тестів алгоритму
-tests/lead-function.test.mjs   15 тестів обробника ліда, роутера (включно з SPA-маршрутами) й Telegram-сповіщень
+tests/lead-function.test.mjs   19 тестів обробника ліда, роутера (включно з SPA-маршрутами), Telegram-сповіщень, honeypot і rate limit
 tests/e2e.mjs                  81 наскрізна перевірка в jsdom
-og.jpg, robots.txt, package.json
+og.jpg, robots.txt, sitemap.xml, package.json
 ```
 
 > **Важливо.** `_worker.js` генерується. Після правки текстів у `assets/content.js`
@@ -196,12 +231,12 @@ npm install        # jsdom для e2e
 npm run test:all
 ```
 
-- `npm test` — 26 тестів без браузера: 11 юніт-тестів алгоритму (кейси T-01…T-05, T-09,
-  реверсивне кодування Q9/Q10, межі рівнів вираженості, правило нічиї) і 15 тестів
+- `npm test` — 30 тестів без браузера: 11 юніт-тестів алгоритму (кейси T-01…T-05, T-09,
+  реверсивне кодування Q9/Q10, межі рівнів вираженості, правило нічиї) і 19 тестів
   обробника ліда (валідація, ідемпотентність, очистка payload для CRM, збірка листа
   для всіх трьох типів результату, роутинг і роздача статики, SPA-маршрути `/q/N`,
-  `/form`, `/result`, `/error`, `ctx.waitUntil` не блокує відповідь, Telegram-сповіщення
-  й graceful degradation при його збої).
+  `/form`, `/result`, `/error`, `ctx.waitUntil` не блокує відповідь, Telegram-сповіщення,
+  graceful degradation при його збої, honeypot і rate limit).
 - `npm run test:e2e` — 81 перевірка повного шляху: FR-02…FR-17, T-06, T-08, T-10…T-16,
   приватність аналітики, відновлення сесії, поведінка при недоступному API.
 

@@ -350,7 +350,10 @@ function goBack() {
   state.currentQuestion -= 1;
   saveState();
   renderQuestion();
-  showScreen('question');
+  // replace, не push: кнопка «Назад» у застосунку не повинна нескінченно
+  // нарощувати стек історії — інакше системна кнопка «Назад» браузера
+  // після кількох натискань цієї кнопки веде довше, ніж людина проходила вперед.
+  showScreen('question', { replace: true });
 }
 
 /* ========================================================== Форма ======= */
@@ -471,6 +474,7 @@ async function handleSubmit(event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sessionId: state.sessionId,            // ключ ідемпотентності
+        website: $('website').value,           // honeypot: у людини завжди порожнє
         firstName,
         email: state.lead.email,
         privacyConsent: true,

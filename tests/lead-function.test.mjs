@@ -6,9 +6,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { handleLead } from '../_worker.js';
 
-const req = (body) => new Request('https://x/api/checkup/lead', {
+const req = (body, headers = {}) => new Request('https://x/api/checkup/lead', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', ...headers },
   body: JSON.stringify(body)
 });
 
@@ -307,4 +307,48 @@ test('Telegram: збій Bot API не ламає створення ліда', a
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('Honeypot: заповнене поле "website" — фейковий успіх без запису й без фонових завдань', async () => {
+  let called = false;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };
+  try {
+    const res = await handleLead({
+      request: req(lead({ website: 'https://spam.example' })),
+      env: { ...ENV, CRM_WEBHOOK_URL: 'https://crm.test/hook', TELEGRAM_BOT_TOKEN: 't', TELEGRAM_CHAT_ID: '1' }
+    });
+    const data = await res.json();
+    assert.equal(res.status, 201);
+    assert.equal(data.ok, true);
+    assert.ok(data.leadId);
+    assert.equal(called, false, 'жодного зовнішнього запиту (CRM/Telegram/лист) не пішло');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('Honeypot: порожнє поле "website" — звичайна обробка ліда', async () => {
+  const res = await handleLead({ request: req(lead({ website: '' })), env: ENV });
+  assert.equal(res.status, 201);
+});
+
+test('Rate limit: більше 8 запитів з однієї IP за вікно — 429', async () => {
+  const headers = { 'cf-connecting-ip': '203.0.113.9' };
+  const results = [];
+  for (let i = 0; i < 10; i++) {
+    const res = await handleLead({ request: req(lead(), headers), env: ENV });
+    results.push(res.status);
+  }
+  const ok = results.filter((s) => s === 201).length;
+  const limited = results.filter((s) => s === 429).length;
+  assert.equal(ok, 8, 'перші 8 запитів з цієї IP проходять');
+  assert.equal(limited, 2, 'наступні впираються в rate limit');
+});
+
+test('Rate limit: різні IP не впливають одна на одну', async () => {
+  const a = await handleLead({ request: req(lead(), { 'cf-connecting-ip': '198.51.100.1' }), env: ENV });
+  const b = await handleLead({ request: req(lead(), { 'cf-connecting-ip': '198.51.100.2' }), env: ENV });
+  assert.equal(a.status, 201);
+  assert.equal(b.status, 201);
 });

@@ -138,7 +138,12 @@ const CONFIG = {
 };
 
 
-const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+const JSON_HEADERS = {
+  'Content-Type': 'application/json; charset=utf-8',
+  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin'
+};
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M}\s'’\-]{1,49}$/u;
 const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const SCENARIO_KEYS = ['perfectionism', 'impostor', 'hypercontrol', 'self_reliance'];
@@ -149,12 +154,46 @@ const json = (body, status = 200) =>
 /** Ідемпотентність у межах ізоляту, якщо KV не підключено. */
 const seen = new Map();
 
+/**
+ * Базовий anti-abuse захист лід-форми (без зовнішніх залежностей типу
+ * Turnstile/reCAPTCHA):
+ *  1. Honeypot-поле "website" — приховане CSS, невидиме людині; боти-автозаповнювачі
+ *     часто заповнюють будь-яке поле форми. Заповнене поле — вдаємо успіх,
+ *     нічого не зберігаючи й нікуди не надсилаючи.
+ *  2. Best-effort rate-limit за IP у межах ізоляту (як і ідемпотентність без KV —
+ *     не синхронізовано між edge-нодами, це свідомий компроміс без інфраструктури).
+ */
+const RATE_LIMIT_MAX = 8;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const rateBuckets = new Map();
+
+function checkRateLimit(ip) {
+  if (!ip) return true; // немає заголовка IP — пропускаємо, а не блокуємо всіх
+  const bucketKey = ip + ':' + Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS);
+  const count = (rateBuckets.get(bucketKey) || 0) + 1;
+  rateBuckets.set(bucketKey, count);
+  if (rateBuckets.size > 5000) rateBuckets.clear(); // проста самоочистка ізоляту
+  return count <= RATE_LIMIT_MAX;
+}
+
 export async function handleLead({ request, env, ctx }) {
+  const ip = request.headers?.get?.('cf-connecting-ip') || request.headers?.get?.('x-forwarded-for');
+  if (!checkRateLimit(ip)) {
+    return json({ ok: false, error: 'rate_limited' }, 429);
+  }
+
   let payload;
   try {
     payload = await request.json();
   } catch {
     return json({ ok: false, error: 'invalid_json' }, 400);
+  }
+
+  // Honeypot: людина це поле не бачить і не заповнює. Заповнене — бот.
+  // Відповідаємо фейковим успіхом, щоб не підказувати боту, що його розпізнали,
+  // і не витрачати CRM/лист/Telegram на сміттєвий лід.
+  if (String(payload?.website || '').trim()) {
+    return json({ ok: true, leadId: crypto.randomUUID() }, 201);
   }
 
   const sessionId = String(payload?.sessionId || '').slice(0, 64);

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
 
-const INCLUDE = ['index.html', '_worker.js', '_headers', 'og.jpg', 'robots.txt', 'assets'];
+const INCLUDE = ['index.html', '_worker.js', '_headers', 'og.jpg', 'robots.txt', 'sitemap.xml', 'assets'];
 
 fs.rmSync(DIST, { recursive: true, force: true });
 fs.mkdirSync(DIST, { recursive: true });
